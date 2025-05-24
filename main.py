@@ -13,9 +13,19 @@ Future Plans:
 - UI improvements and additional features
 """
 
-
+import pygame
 import curses  # Terminal formatting module
 import time  # For WPM calculation
+
+def play_sound(file):
+    """
+    Play a sound file using pygame.
+    Args:
+        file: The path to the sound file.
+    """
+    pygame.mixer.init()
+    sound = pygame.mixer.Sound(file)
+    sound.play()
 
 def initialize_curses(stdscr):
     """
@@ -102,11 +112,13 @@ def typing_test(stdscr):
             user_input += chr(key)  # Append character to user input
             # Display character with the correct colour
             stdscr.addch(sentence_y, sentence_x + index, chr(key), curses.color_pair(2))
+            play_sound("typewriter_key.mp3")
             index += 1  # Move to the next character
 
             # If input is complete, calculate results
             if len(user_input) == len(sentence):
                 end_time = time.time()
+
                 break
         elif key in (curses.KEY_BACKSPACE, 8):  # Handle backspace functionality
             if index > 0 and user_input[-1] != sentence[index - 1]:  # Allow backspace only on mismatches
@@ -118,6 +130,7 @@ def typing_test(stdscr):
         elif key != ord(sentence[index]):  # Incorrect character entered
             # Highlight incorrect character with a different colour
             stdscr.addch(sentence_y, sentence_x + index, sentence[index], curses.color_pair(3))
+            play_sound("clank1-91862.mp3")
             # Keep cursor on the same position for retry
             stdscr.move(sentence_y, sentence_x + index)
 
