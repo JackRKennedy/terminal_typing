@@ -7,15 +7,30 @@ Features:
 - Measures Words Per Minute (WPM)
 - Colored display for user feedback
 
-Future Plans:
-- Add sentence customisation options
-- Integrate with external APIs for content
-- UI improvements and additional features
+Content:
+- Using the free wikipedia API, the program pulls a random page summary from the wikipedia website for you to type
+- This means that you are typing real-world sentences which can contain all alphanumeric characters and symbols
+- It also means that there is no control over how long or how short the page summary is, so each test is different
+- Please also note that the content could possibly give you a page summary of something you disagree with or are offended by
+- In such case, please use the reload button to get a new page summary (CTRL+R)
 """
 
 import pygame
 import curses  # Terminal formatting module
 import time  # For WPM calculation
+import requests
+
+def get_sentence():
+    url = "https://en.wikipedia.org/api/rest_v1/page/random/summary"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = response.json()
+        title = data.get("title", "No title found")
+        sentence = data.get("extract", "No summary found")
+        return title, sentence
+    else : return "Error", "Failed to retrieve data"
+
 
 def play_sound(file):
     """
@@ -83,7 +98,15 @@ def typing_test(stdscr):
     Handles user interaction, tracks progress, and calculates WPM.
     """
     # Sentence to type and initialise the necessary variables
-    sentence = "the quick brown fox jumps over the lazy dog"
+    title, sentence = get_sentence() # unpack sentence function to return title and summary
+    if title == "Error":
+        stdscr.clear()
+        stdscr.addstr(2, 10, "API request failed. Please try again.", curses.A_BOLD)
+        stdscr.refresh()
+        stdscr.getch()  # Wait for user input before retrying
+        return  # Exit the function before running the rest
+
+
     word_count = len(sentence.split(" "))  # Count words for WPM calculation
     user_input = ""
     index = 0  # Current position in the sentence
@@ -92,9 +115,20 @@ def typing_test(stdscr):
     # Get screen dimensions for proper positioning
     height, width = stdscr.getmaxyx()
 
+    # Ensure sentence isn't too long for the terminal
+    if len(sentence) > width - 10:
+        sentence = sentence[:width - 15] + "..."
+
+    # Ensure no negative position values
+    title_x = max((width - len(title)) // 2, 0)
+    title_y = max(height // 2 - 1, 0)
+    sentence_x = max((width - len(sentence)) // 2, 0)
+    sentence_y = max(height // 2, 0)
+
+    # Display the title in the centre-top of the screen
+    stdscr.addstr(title_y, title_x, title)
+
     # Display a sentence in the centre of the screen
-    sentence_x = (width - len(sentence)) // 2
-    sentence_y = height // 2
     stdscr.addstr(sentence_y, sentence_x, sentence)
 
     # Position the cursor at the start of the sentence
@@ -112,7 +146,7 @@ def typing_test(stdscr):
             user_input += chr(key)  # Append character to user input
             # Display character with the correct colour
             stdscr.addch(sentence_y, sentence_x + index, chr(key), curses.color_pair(2))
-            play_sound("typewriter_key.mp3")
+            play_sound("sounds/typewriter_key.mp3")
             index += 1  # Move to the next character
 
             # If input is complete, calculate results
@@ -130,7 +164,7 @@ def typing_test(stdscr):
         elif key != ord(sentence[index]):  # Incorrect character entered
             # Highlight incorrect character with a different colour
             stdscr.addch(sentence_y, sentence_x + index, sentence[index], curses.color_pair(3))
-            play_sound("clank1-91862.mp3")
+            play_sound("sounds/clank1-91862.mp3")
             # Keep cursor on the same position for retry
             stdscr.move(sentence_y, sentence_x + index)
 
@@ -202,15 +236,15 @@ def clean_up_curses(stdscr):
     """
     Restores the terminal to its original state after curses mode.
     """
-    if stdscr:
-        try:
-            # Reset terminal settings modified by curses
+    try:
+        # Reset terminal settings modified by curses
+        if stdscr:
             stdscr.keypad(False)
             curses.echo()
             curses.nocbreak()
-            curses.endwin()
-        except Exception as e:
-            print(f"Error during cleanup: {e}")  # Handle cleanup failures
+        curses.endwin()
+    except Exception as e:
+        pass
 
 
 if __name__ == '__main__':
