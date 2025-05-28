@@ -15,10 +15,15 @@ Content:
 - In such case, please use the reload button to get a new page summary (CTRL+R)
 """
 
-import pygame
+import pygame # for asynchronous sound
 import curses  # Terminal formatting module
 import time  # For WPM calculation
-import requests
+import requests # for wiki api call
+import unicodedata # for normalising page summaries so that accents over viwels can be ignored
+
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 def get_sentence():
     url = "https://en.wikipedia.org/api/rest_v1/page/random/summary"
@@ -99,6 +104,7 @@ def typing_test(stdscr):
     """
     # Sentence to type and initialise the necessary variables
     title, sentence = get_sentence() # unpack sentence function to return title and summary
+    sentence = remove_accents(sentence) # remove accents from summary
     if title == "Error":
         stdscr.clear()
         stdscr.addstr(2, 10, "API request failed. Please try again.", curses.A_BOLD)
@@ -121,12 +127,12 @@ def typing_test(stdscr):
 
     # Ensure no negative position values
     title_x = max((width - len(title)) // 2, 0)
-    title_y = max(height // 2 - 1, 0)
+    title_y = max(height // 2 - 2, 0)
     sentence_x = max((width - len(sentence)) // 2, 0)
     sentence_y = max(height // 2, 0)
 
     # Display the title in the centre-top of the screen
-    stdscr.addstr(title_y, title_x, title)
+    stdscr.addstr(title_y, title_x, title.upper(), curses.A_BOLD)
 
     # Display a sentence in the centre of the screen
     stdscr.addstr(sentence_y, sentence_x, sentence)
@@ -161,6 +167,10 @@ def typing_test(stdscr):
 
                 # Restore original correct character in default colour
                 stdscr.addch(sentence_y, sentence_x + index, sentence[index], curses.color_pair(1))
+        elif key == 18: #ascii call for CTRL+R
+            stdscr.clear()
+            typing_test(stdscr) # as ui is handled in this function this is the cleanest implementation
+            return
         elif key != ord(sentence[index]):  # Incorrect character entered
             # Highlight incorrect character with a different colour
             stdscr.addch(sentence_y, sentence_x + index, sentence[index], curses.color_pair(3))
